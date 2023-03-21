@@ -1,4 +1,4 @@
-function D3_Decoding_batch_XClass(beta_dir, output_dir, labelnames_train, labelnames_test)
+function D5_Decoding_batch_XClass(beta_dir, output_dir, labelnames_train, labelnames_test)
 % This Batch Script first specifies what features should be decoded and
 % executes the Decoding Cross Classification.
 % The resulting accuracy maps should later be normalized and smoothed
@@ -25,7 +25,7 @@ cfg.scale.estimation      = 'all'; % only training, only test data, or all
 % SEARCHLIGHT SPECIFICATIONS
 cfg.analysis              = 'roi';   % or 'roi'
 cfg.searchlight.unit      = 'voxels'; % or mm 
-cfg.searchlight.radius    = 4; % 4 voxel or mm
+cfg.searchlight.radius    = 5; % 4 voxel or mm
 cfg.searchlight.spherical = 0;  % only useful for mm
 % The amount of information you want to have printed on the screen
 % 0: no, 1: normal, output, 2: all)
@@ -36,14 +36,14 @@ cfg.decoding.method = 'classification';
 cfg.decoding.train.classification.model_parameters = '-s 0 -t 0 -c 1 -b 0 -q'; 
 
 % OUTPUTS SPECIFICATION
-cfg.results.output = {'accuracy_minus_chance','confusion_matrix'};
+cfg.results.output = {'accuracy', 'confusion_matrix'};
 % 'accuracy', 'accuracy_minus_chance', 'sensitivity_minus_chance', 'specificity_minus_chance', 'balanced_accuracy_minus_chance', 'confusion_matrix', 'AUC_minus_chance'
 
 % DISPLAY:
 cfg.plot_selected_voxels  = 0; % 0: no plotting, 1: every step, 2: every second step, 100: every hundredth step...
 
 % This is by default set to 1, but if you repeat the same design again and again, it can get annoying...
-cfg.plot_design           = 1;
+cfg.plot_design           = 0;
 
 % Set the filename of your brain mask (or your ROI masks as cell matrix) 
 % for searchlight or wholebrain e.g. 'c:\exp\glm\model_button\mask.img' OR 
@@ -53,22 +53,30 @@ cfg.plot_design           = 1;
 
 % cfg.files.mask = fullfile(beta_dir, 'mask.nii');
 
-mask_path = 'C:\Users\saraw\Desktop\Masks\MASKS\';
-cfg.files.mask            = {[mask_path,'PSC_1_cut_interBA_cut_ROI_left_SI_MNI_cut_STIM.nii'], ...
-                             [mask_path,'PSC_1_cut_interBA_cut_ROI_right_SI_MNI_cut_STIM.nii'], ...
-                             [mask_path,'PSC_2_cut_interBA_cut_ROI_left_SI_MNI_cut_STIM.nii'], ...
-                             [mask_path,'PSC_2_cut_interBA_cut_ROI_right_SI_MNI_cut_STIM.nii'], ...
-                             [mask_path,'PSC_3b_cut_interBA_cut_ROI_left_SI_MNI_cut_STIM.nii'], ...
-                             [mask_path,'PSC_3b_cut_interBA_cut_ROI_right_SI_MNI_cut_STIM.nii'], ...
-                             [mask_path,'ROI_SIILeftMask_MNI_cut_NEW_StimMask001.nii'], ...
-                             [mask_path,'ROI_SIIRightMask_MNI_cut_NEW_StimMask001.nii']};
+mask_path = 'C:\Users\saraw\Desktop\newest_masks\GoodImag_model\controlClustersConjUncorr_k200';
+cd(mask_path);
+masks = dir('*.nii');
+for ma=1:length(masks)
+    cfg.files.mask(1,ma) = {masks(ma).name};
+end
+
+% cfg.parameter_selection.method = 'grid';
+%   % grid search (currently the only implemented method)
+% cfg.parameter_selection.parameters = {'-c'};
+% cfg.parameter_selection.parameter_range = {[0.0001 0.001 0.01 0.1 1 10 100 1000]};
+% % cfg.parameter_selection.design.function = 'make_design_cv';
+% cfg.parameter_selection.design.function.name = 'make_design_cv';
 
 %% sort data
 load(fullfile(beta_dir, 'regressor_names.mat'));
 train1=find(strcmp(regressor_names(1,:),labelnames_train(1,1)));
 train2=find(strcmp(regressor_names(1,:),labelnames_train(1,2)));
+train3=find(strcmp(regressor_names(1,:),labelnames_train(1,3)));
+
 test1=find(strcmp(regressor_names(1,:),labelnames_test(1,1)));
 test2=find(strcmp(regressor_names(1,:),labelnames_test(1,2)));
+test3=find(strcmp(regressor_names(1,:),labelnames_test(1,3)));
+
 
 %% Decoding DESIGN
 % cfg.files.chunk   = [ 1  1  2  2  3  3  4  4  5  5  6  6     1  1  2  2  3  3  4  4  5  5  6  6]';
@@ -87,13 +95,19 @@ for i = 1:length(train1)
     temp=num2str(train1(i));
     f{length(f)+1} = spm_select('FPList',fullfile(beta_dir), [filename(1:end-length(temp)) temp '.(nii|img)']);
     c(length(c)+1)  = i;
-    l(length(l)+1)  = -1;
+    l(length(l)+1)  = 1;
     xc(length(xc)+1) = 1;
     
     temp=num2str(train2(i));
     f{length(f)+1} = spm_select('FPList',fullfile(beta_dir), [filename(1:end-length(temp)) temp '.(nii|img)']);
     c(length(c)+1)  = i;
-    l(length(l)+1)  = 1;
+    l(length(l)+1)  = 2;
+    xc(length(xc)+1) = 1;
+
+    temp=num2str(train3(i));
+    f{length(f)+1} = spm_select('FPList',fullfile(beta_dir), [filename(1:end-length(temp)) temp '.(nii|img)']);
+    c(length(c)+1)  = i;
+    l(length(l)+1)  = 3;
     xc(length(xc)+1) = 1;
 end
 
@@ -101,13 +115,19 @@ for i = 1:length(test1)
     temp=num2str(test1(i));
     f{length(f)+1} = spm_select('FPList',fullfile(beta_dir), [filename(1:end-length(temp)) temp '.(nii|img)']);
     c(length(c)+1)  = i;
-    l(length(l)+1)  = -1;
+    l(length(l)+1)  = 1;
     xc(length(xc)+1) = 2;
     
     temp=num2str(test2(i));
     f{length(f)+1} = spm_select('FPList',fullfile(beta_dir), [filename(1:end-length(temp)) temp '.(nii|img)']);
     c(length(c)+1)  = i;
-    l(length(l)+1)  = 1;
+    l(length(l)+1)  = 2;
+    xc(length(xc)+1) = 2;
+
+    temp=num2str(test3(i));
+    f{length(f)+1} = spm_select('FPList',fullfile(beta_dir), [filename(1:end-length(temp)) temp '.(nii|img)']);
+    c(length(c)+1)  = i;
+    l(length(l)+1)  = 3;
     xc(length(xc)+1) = 2;
 end
 
